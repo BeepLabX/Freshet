@@ -110,12 +110,44 @@ public static class SelfTests
         Check(!Winget.UpgradeArguments(parsed.Packages[0], false).Contains("--silent"), "Installer UI preference");
         Check(!Winget.UpgradeArguments(parsed.Packages[2], true).Contains("--version"), "Store packages are not pinned to a version");
         var data = new Storage(Path.Combine(root, "data"));
-        var p = new Preferences { SilentInstall = false, ExcludedIds = ["winget/Git.Git"] };
+        var p = new Preferences { SilentInstall = false, ExcludedIds = ["winget/Git.Git"], HiddenPackages = [new("Git", "Git.Git", "winget")] };
         data.SavePreferences(p);
         Check(!data.ReadPreferences().SilentInstall && data.ReadPreferences().ExcludedIds.Count == 1, "Preferences and held packages round trip");
         data.SavePreferences(p); // The second save leaves preferences.json.bak.
         File.WriteAllText(Path.Combine(data.Root, "preferences.json"), "{ broken");
         Check(!data.ReadPreferences().SilentInstall && File.Exists(Path.Combine(data.Root, "preferences.json.corrupt")), "Damaged preferences fall back to the backup and keep the damaged copy");
+        string preferencesPath = Path.Combine(data.Root, "preferences.json");
+        byte[] goodBackup = File.ReadAllBytes(preferencesPath + ".bak");
+        data.SavePreferences(data.ReadPreferences());
+        Check(File.ReadAllBytes(preferencesPath + ".bak").SequenceEqual(goodBackup), "Saving recovered preferences retains a valid backup");
+        File.WriteAllText(preferencesPath, "{ broken again");
+        var recovered = data.ReadPreferences();
+        Check(!recovered.SilentInstall && recovered.ExcludedIds.SequenceEqual(p.ExcludedIds) && recovered.HiddenPackages.SequenceEqual(p.HiddenPackages), "A second corruption still recovers held/hidden packages and settings");
+        Check(File.ReadAllText(preferencesPath + ".corrupt") == "{ broken" &&
+            Directory.GetFiles(data.Root, "preferences.json.corrupt*").Any(f => File.ReadAllText(f) == "{ broken again"), "Repeated recovery preserves both damaged originals");
+        string[] invalidPreferences = ["null", "{\"HiddenPackages\":null}", "{\"ExcludedIds\":null}", "{\"ExcludedIds\":[null]}",
+            "{\"HiddenPackages\":[null]}", "{\"HiddenPackages\":[{\"Name\":\"App\",\"Source\":\"winget\"}]}",
+            "{\"HiddenPackages\":[{\"Name\":\"App\",\"Id\":\"Test.App\",\"Source\":null}]}",
+            "{\"HiddenPackages\":[{\"Name\":null,\"Id\":\"Test.App\",\"Source\":\"winget\"}]}",
+            "{\"HiddenPackages\":[{\"Name\":\"App\",\"Id\":\"\",\"Source\":\"winget\"}]}", "{\"LastScan\":null}"];
+        for (int i = 0; i < invalidPreferences.Length; i++)
+        {
+            var invalidStore = new Storage(Path.Combine(root, "invalid-preferences-" + i));
+            string invalidPath = Path.Combine(invalidStore.Root, "preferences.json");
+            File.WriteAllText(invalidPath, invalidPreferences[i]);
+            File.WriteAllBytes(invalidPath + ".bak", goodBackup);
+            var restored = invalidStore.ReadPreferences();
+            Check(!restored.SilentInstall && restored.ExcludedIds.SequenceEqual(p.ExcludedIds) && restored.HiddenPackages.SequenceEqual(p.HiddenPackages) &&
+                File.ReadAllText(invalidPath + ".corrupt") == invalidPreferences[i], "Invalid preference values recover from backup and preserve the original: " + i);
+        }
+        var noBackup = new Storage(Path.Combine(root, "no-preference-backup"));
+        string noBackupPath = Path.Combine(noBackup.Root, "preferences.json");
+        File.WriteAllText(noBackupPath, "{\"HiddenPackages\":null}");
+        var defaults = noBackup.ReadPreferences();
+        Check(defaults.HiddenPackages.Count == 0 && defaults.ExcludedIds.Count == 0 && File.Exists(noBackupPath + ".corrupt"), "Invalid preferences without a backup return safe defaults and preserve the original");
+        File.WriteAllText(noBackupPath + ".bak", "{\"ExcludedIds\":null}");
+        defaults = noBackup.ReadPreferences();
+        Check(defaults.HiddenPackages.Count == 0 && defaults.ExcludedIds.Count == 0, "An invalid backup also falls back to safe defaults");
         for (int i = 0; i < 35; i++) File.WriteAllText(Path.Combine(data.Logs, $"scan-20260101-0000{i:00}-x.log"), "");
         data.PruneScanLogs();
         Check(Directory.GetFiles(data.Logs, "scan-*.log").Length == 30 && File.Exists(Path.Combine(data.Logs, "scan-20260101-000034-x.log")), "Old scan logs are pruned, newest kept");

@@ -9,6 +9,7 @@ New-Item -ItemType Directory -Path $taskRelease -Force | Out-Null
 $taskApp = Join-Path $taskRoot ('.work\packaging\' + [guid]::NewGuid().ToString('N') + '\Freshet')
 New-Item -ItemType Directory -Path $taskApp -Force | Out-Null
 Copy-Item -LiteralPath $taskExe -Destination (Join-Path $taskApp 'Freshet.exe') -Force
+Copy-Item -LiteralPath (Join-Path $taskRoot 'LICENSE') -Destination (Join-Path $taskApp 'LICENSE') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\usage.txt') -Destination (Join-Path $taskApp '사용안내.txt') -Force
 Copy-Item -LiteralPath (Join-Path $taskRoot 'src\Freshet\Assets\Fonts\OFL.txt') -Destination (Join-Path $taskApp 'Pretendard-OFL.txt') -Force
 $taskLicenseSource = Join-Path $taskRoot 'artifacts\publish\win-x64\licenses'

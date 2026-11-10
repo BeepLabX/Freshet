@@ -18,14 +18,32 @@ public sealed class Storage
     public Preferences ReadPreferences()
     {
         var path = Path.Combine(Root, "preferences.json");
-        try { return File.Exists(path) ? JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path)) ?? new() : new(); }
+        try { return File.Exists(path) ? ParsePreferences(File.ReadAllText(path)) : new(); }
         catch (JsonException)
         {
-            // Keep the damaged file for recovery, then fall back to the backup written by the previous save.
-            File.Copy(path, path + ".corrupt", true);
-            try { return File.Exists(path + ".bak") ? JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path + ".bak")) ?? new() : new(); }
+            string damaged = path + ".corrupt";
+            if (File.Exists(damaged)) damaged += "-" + Guid.NewGuid().ToString("N");
+            File.Copy(path, damaged);
+            try
+            {
+                if (!File.Exists(path + ".bak")) return new();
+                string backup = File.ReadAllText(path + ".bak");
+                var preferences = ParsePreferences(backup);
+                // Restore the primary file so the next save cannot back up the damaged original.
+                AtomicWrite(path, backup);
+                return preferences;
+            }
             catch (JsonException) { return new(); }
         }
+    }
+    private static Preferences ParsePreferences(string text)
+    {
+        var p = JsonSerializer.Deserialize<Preferences>(text) ?? throw new JsonException("설정 값이 없습니다.");
+        if (p.LastScan is null || p.ExcludedIds is null || p.HiddenPackages is null ||
+            p.ExcludedIds.Any(string.IsNullOrWhiteSpace) || p.HiddenPackages.Any(h => h is null ||
+                string.IsNullOrWhiteSpace(h.Name) || string.IsNullOrWhiteSpace(h.Id) || string.IsNullOrWhiteSpace(h.Source)))
+            throw new JsonException("설정 파일에 유효하지 않은 값이 있습니다.");
+        return p;
     }
     public void PruneScanLogs(int keep = 30)
     {
