@@ -1,47 +1,51 @@
-# Draws the original Freshet app icon (vector, no third-party artwork) and writes a multi-size ICO.
+# Renders the Freshet brand mark (src/Freshet/Assets/BrandMark.xaml, original vector artwork) into a multi-size ICO.
 # Run with Windows PowerShell: powershell -STA -File scripts\make-icon.ps1
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase
 $taskRoot = Split-Path -Parent $PSScriptRoot
+$taskMarks = [System.Windows.Markup.XamlReader]::Parse([System.IO.File]::ReadAllText((Join-Path $taskRoot 'src\Freshet\Assets\BrandMark.xaml')))
 $taskOutput = Join-Path $taskRoot 'src\Freshet\Assets\Freshet.ico'
 $taskSizes = @(256, 64, 48, 40, 32, 24, 20, 16)
 
-function New-IconPng([int]$size) {
+function Render([int]$size) {
+    $mark = if ($size -le 32) { $taskMarks['BrandMarkSmall'] } else { $taskMarks['BrandMark'] }
     $visual = New-Object System.Windows.Media.DrawingVisual
     $dc = $visual.RenderOpen()
-    $dc.PushTransform((New-Object System.Windows.Media.ScaleTransform ($size / 256.0), ($size / 256.0)))
-    $fill = New-Object System.Windows.Media.LinearGradientBrush (
-        [System.Windows.Media.Color]::FromRgb(0x2F, 0xB8, 0xE8), [System.Windows.Media.Color]::FromRgb(0x1D, 0x5F, 0xE0), 55.0)
-    $inset = if ($size -le 24) { 8 } else { 16 }
-    $radius = if ($size -le 24) { 48 } else { 58 }
-    $dc.DrawRoundedRectangle($fill, $null, (New-Object System.Windows.Rect $inset, $inset, (256 - 2 * $inset), (256 - 2 * $inset)), $radius, $radius)
-    # Small sizes get thicker strokes and a single wave so the mark stays legible.
-    $small = $size -le 32
-    $stroke = if ($small) { 30 } else { 20 }
-    $white = New-Object System.Windows.Media.Pen ([System.Windows.Media.Brushes]::White), $stroke
-    $white.StartLineCap = 'Round'; $white.EndLineCap = 'Round'; $white.LineJoin = 'Round'
-    $arrow = if ($small) { 'M128,58 L128,142 M88,98 L128,58 L168,98' } else { 'M128,56 L128,138 M94,90 L128,56 L162,90' }
-    $dc.DrawGeometry($null, $white, [System.Windows.Media.Geometry]::Parse($arrow))
-    $wave = if ($small) { 'M54,188 C82,164 106,164 128,184 C150,204 174,204 202,180' } else { 'M52,176 C80,152 104,152 128,172 C152,192 176,192 204,168' }
-    $dc.DrawGeometry($null, $white, [System.Windows.Media.Geometry]::Parse($wave))
-    if (-not $small) {
-        $soft = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.Color]::FromArgb(0x99, 0xFF, 0xFF, 0xFF))
-        $softPen = New-Object System.Windows.Media.Pen $soft, 14
-        $softPen.StartLineCap = 'Round'; $softPen.EndLineCap = 'Round'
-        $dc.DrawGeometry($null, $softPen, [System.Windows.Media.Geometry]::Parse('M70,212 C94,194 112,194 128,208 C146,222 164,222 186,206'))
-    }
-    $dc.Pop(); $dc.Close()
+    $dc.DrawImage($mark, (New-Object System.Windows.Rect 0, 0, $size, $size))
+    $dc.Close()
     $bitmap = New-Object System.Windows.Media.Imaging.RenderTargetBitmap $size, $size, 96, 96, ([System.Windows.Media.PixelFormats]::Pbgra32)
     $bitmap.Render($visual)
-    $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
-    $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+    return $bitmap
+}
+
+# 256 px is stored as PNG. Smaller sizes are stored as 32-bit DIBs, which every Windows icon API reads.
+function Encode([int]$size) {
+    $bitmap = Render $size
+    if ($size -ge 256) {
+        $encoder = New-Object System.Windows.Media.Imaging.PngBitmapEncoder
+        $encoder.Frames.Add([System.Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
+        $stream = New-Object System.IO.MemoryStream
+        $encoder.Save($stream)
+        return , $stream.ToArray()
+    }
+    $straight = New-Object System.Windows.Media.Imaging.FormatConvertedBitmap $bitmap, ([System.Windows.Media.PixelFormats]::Bgra32), $null, 0
+    $stride = $size * 4
+    $pixels = New-Object byte[] ($stride * $size)
+    $straight.CopyPixels($pixels, $stride, 0)
+    $maskStride = [int]([Math]::Ceiling($size / 32.0) * 4)
     $stream = New-Object System.IO.MemoryStream
-    $encoder.Save($stream)
+    $writer = New-Object System.IO.BinaryWriter $stream
+    $writer.Write([uint32]40); $writer.Write([int32]$size); $writer.Write([int32]($size * 2))
+    $writer.Write([uint16]1); $writer.Write([uint16]32); $writer.Write([uint32]0)
+    $writer.Write([uint32]($stride * $size + $maskStride * $size)); $writer.Write([int32]0); $writer.Write([int32]0)
+    $writer.Write([uint32]0); $writer.Write([uint32]0)
+    for ($y = $size - 1; $y -ge 0; $y--) { $writer.Write($pixels, $y * $stride, $stride) }
+    $writer.Write((New-Object byte[] ($maskStride * $size)))  # Alpha channel carries transparency; AND mask stays empty.
+    $writer.Flush()
     return , $stream.ToArray()
 }
 
-# ICO container: header, one directory entry per size, then PNG payloads (Windows Vista+).
-$images = @($taskSizes | ForEach-Object { , (New-IconPng $_) })
+$images = @($taskSizes | ForEach-Object { , (Encode $_) })
 $file = New-Object System.IO.MemoryStream
 $writer = New-Object System.IO.BinaryWriter $file
 $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]$taskSizes.Count)

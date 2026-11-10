@@ -1,0 +1,32 @@
+<!-- Freshet brand mark: the single vector source for the in-app logo and scripts/make-icon.ps1. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <LinearGradientBrush x:Key="BrandFill" StartPoint="0.15,0" EndPoint="0.85,1">
+    <GradientStop Color="#2FB8E8" Offset="0"/><GradientStop Color="#1D5FE0" Offset="1"/>
+  </LinearGradientBrush>
+  <Pen x:Key="BrandStroke" Brush="White" Thickness="20" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+  <DrawingImage x:Key="BrandMark">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H256 V256 H0 Z"/>
+        <GeometryDrawing Brush="{StaticResource BrandFill}" Geometry="M16,74 A58,58 0 0 1 74,16 H182 A58,58 0 0 1 240,74 V182 A58,58 0 0 1 182,240 H74 A58,58 0 0 1 16,182 Z"/>
+        <GeometryDrawing Pen="{StaticResource BrandStroke}" Geometry="M128,56 L128,138 M94,90 L128,56 L162,90"/>
+        <GeometryDrawing Pen="{StaticResource BrandStroke}" Geometry="M52,176 C80,152 104,152 128,172 C152,192 176,192 204,168"/>
+        <GeometryDrawing Geometry="M70,212 C94,194 112,194 128,208 C146,222 164,222 186,206">
+          <GeometryDrawing.Pen><Pen Brush="#99FFFFFF" Thickness="14" StartLineCap="Round" EndLineCap="Round"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+  <!-- 16-32 px: larger tile, thicker strokes and one wave so the mark stays legible. -->
+  <DrawingImage x:Key="BrandMarkSmall">
+    <DrawingImage.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H256 V256 H0 Z"/>
+        <GeometryDrawing Brush="{StaticResource BrandFill}" Geometry="M8,56 A48,48 0 0 1 56,8 H200 A48,48 0 0 1 248,56 V200 A48,48 0 0 1 200,248 H56 A48,48 0 0 1 8,200 Z"/>
+        <GeometryDrawing Geometry="M128,58 L128,142 M88,98 L128,58 L168,98 M54,188 C82,164 106,164 128,184 C150,204 174,204 202,180">
+          <GeometryDrawing.Pen><Pen Brush="White" Thickness="30" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/></GeometryDrawing.Pen>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingImage.Drawing>
+  </DrawingImage>
+</ResourceDictionary>
