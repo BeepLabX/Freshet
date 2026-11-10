@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Freshet.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <AssemblyName>Freshet</AssemblyName>
+    <RootNamespace>Freshet</RootNamespace>
+    <StartupObject>Freshet.Program</StartupObject>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Freshet.ico" />
+    <Resource Include="Assets\Fonts\*.otf" />
+    <EmbeddedResource Include="Assets\Fonts\OFL.txt" />
+  </ItemGroup>
+</Project>

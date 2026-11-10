@@ -1,0 +1,21 @@
+# Build/runtime output
+**/bin/
+**/obj/
+artifacts/
+.tools/
+.work/
+TestResults/
+*.user
+*.suo
+.vs/
+.idea/
+*.log
+*.tmp
+
+# Local credentials and settings
+.env
+.env.*
+!.env.example
+
+# Raw third-party research is local only
+research/raw/
